@@ -1,113 +1,122 @@
-import Image from "next/image";
+"use client";
+import React, { useState } from "react";
+import axios from "axios";
+import { LRUCache } from "@/utils/LRU_cache";
+import { LFUCache } from "@/utils/LFU_cache";
+import { Images, ImagesFreq } from "../utils/types/type"; // Adjust path if necessary
+import SearchBar from "@/components/SearchBar";
+import PhotoBox from "@/components/PhotoBox";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-export default function Home() {
+const cache = new LRUCache<string, Images[] | null>(5); // Instantiate the LRUCache
+const cacheLf = new LFUCache<string, ImagesFreq | null>(5);
+const Home = () => {
+  const URL = "https://api.unsplash.com/search/photos";
+  const [images, setImages] = useState<Images[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [imgLoaded, setImgLoaded] = useState(true);
+  const [isLFU, setisLFU] = useState(true);
+  const [cachedImages, setcachedImages] = useState<Images[] | null>(null);
+  const IMAGE_PER_PAGE = 6;
+  const getImages = async (key: string) => {
+    console.log(key);
+    if (key !== "") {
+      if (!isLFU) {
+        const res =  cacheLf.get(key);
+        setcachedImages(res?.image || null);
+      } else {
+        const res =  cache.get(key);
+        setcachedImages(res);
+      }
+     
+      if (cachedImages) {
+        console.log("cache hit");
+        setImages(cachedImages);
+        console.log("images in cache", images);
+        setImgLoaded(true);
+        toast.success(
+          `${isLFU ? "LFU" : "LRU"} Cache hit... Updating the cache`
+        );
+      } else {
+        console.log("Cache miss");
+        toast.error(`${isLFU ? "LFU" : "LRU"} Cache miss... Adding in cache`);
+        try {
+          const response = await axios.get(
+            `${URL}?query=${key}&page=1&per_page=${IMAGE_PER_PAGE}&client_id=6QJm2DVu_9QByawBlMt_1xglZBSVOS8Xv_XUWi-E6u8`
+          );
+          // console.log(response.data.results[0].alt_description);
+          // console.log(response.data.results[0].urls);
+          // console.log("response", response);
+          const fetchedImages: Images[] | null = await response.data.results.map(
+            (img: any) => ({
+              url: img.urls.small,
+              alt: img.alt_description,
+            })
+          ) || null;
+          if (fetchedImages!=null) {
+            if(fetchedImages!=null) setImages(fetchedImages);
+           
+            if (isLFU) {
+              const ValueFreq: ImagesFreq = {
+                image: fetchedImages,
+                freq: 0,
+              };
+              cacheLf.put(key, ValueFreq);
+            } else {
+              cache.set(key, fetchedImages);
+            }
+           
+            await console.log("images after set", images);
+            setImgLoaded(true);
+          }
+        } catch (error: any) {
+          console.log(error.message);
+        }
+      }
+    }
+  };
+
+  const handleToggle = () => {
+    setisLFU(!isLFU);
+    if (isLFU) {
+      toast("Switch to LFU cache");
+    } else {
+      toast("Switch to LRU cache");
+    }
+  };
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <main className="w-full h-screen p-8">
+      <ToastContainer />
+      <div className="flex flex-row justify-center">
+        <h1 className="header">Image Search</h1>
+        <div className="p-5">
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              value=""
+              className="sr-only peer"
+              onChange={handleToggle}
             />
-          </a>
+            <div
+              className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none  rounded-full peer dark:bg-[#EEEEEE] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full
+             after:content-[''] after:absolute after:top-[2px] after:start-[2px] 
+             after:bg-[#222831] after:rounded-full after:h-5 after:w-5 after:transition-all  peer-checked:bg-[#76ABAE]"
+            ></div>
+            <span className="ms-3 text-xl font-medium  text-[#EEEEEE]">
+              {isLFU ? <>LRU</> : <>LFU</>}
+            </span>
+          </label>
         </div>
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <SearchBar
+        setSearch={setSearch}
+        setImgLoaded={setImgLoaded}
+        getImages={getImages}
+      />
+      {images && <PhotoBox images={images} imgLoaded={imgLoaded} />}
     </main>
   );
-}
+};
+
+export default Home;
