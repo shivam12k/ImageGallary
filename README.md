@@ -1,8 +1,10 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Definitions
-  ### LRU (Least Recently Used): It is a caching algorithm removes the least recently accessed item when the cache reaches its limit. This means that the item that has not been used for the longest period of time will be evicted first. 
-  ### LFU (Least Frequency Used): It is a caching algorithm that keeps track of how often items are accessed and evicts the item with the lowest access frequency when the cache reaches its capacity. This algorithm is useful in scenarios where items that are frequently accessed are more likely to be reused, and thus should be kept in the cache.
+  ### LRU (Least Recently Used):
+  It is a caching algorithm removes the least recently accessed item when the cache reaches its limit. This means that the item that has not been used for the longest period of time will be evicted first. 
+  ### LFU (Least Frequency Used):
+  It is a caching algorithm that keeps track of how often items are accessed and evicts the item with the lowest access frequency when the cache reaches its capacity. This algorithm is useful in scenarios where items that are frequently accessed are more likely to be reused, and thus should be kept in the cache.
 
    This caching strategy can help to reduce API calls in an image gallery application by storing recently fetched data in memory, so it can be quickly retrieved without needing to make 
   additional API requests. 
