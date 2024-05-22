@@ -3,33 +3,35 @@ import React, { useState } from "react";
 import axios from "axios";
 import { LRUCache } from "@/utils/LRU_cache";
 import { LFUCache } from "@/utils/LFU_cache";
-import { Images, ImagesFreq } from "../utils/types/type"; // Adjust path if necessary
+import { Images, ImagesFreq } from "../utils/types/type";
 import SearchBar from "@/components/SearchBar";
 import PhotoBox from "@/components/PhotoBox";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const cache = new LRUCache<string, Images[] | null>(5); // Instantiate the LRUCache
+const cache = new LRUCache<string, Images[] | null>(5);
 const cacheLf = new LFUCache<string, ImagesFreq | null>(5);
 const Home = () => {
   const URL = "https://api.unsplash.com/search/photos";
   const [images, setImages] = useState<Images[] | null>(null);
   const [search, setSearch] = useState("");
   const [imgLoaded, setImgLoaded] = useState(true);
-  const [isLFU, setisLFU] = useState(true);
+  const [isLFU, setisLFU] = useState(false);
   const [cachedImages, setcachedImages] = useState<Images[] | null>(null);
   const IMAGE_PER_PAGE = 6;
+  const id = process.env.NEXT_PUBLIC_API_KEY;
+  console.log("id", id);
   const getImages = async (key: string) => {
     console.log(key);
     if (key !== "") {
-      if (!isLFU) {
-        const res =  cacheLf.get(key);
+      if (isLFU) {
+        const res = cacheLf.get(key);
         setcachedImages(res?.image || null);
       } else {
-        const res =  cache.get(key);
+        const res = cache.get(key);
         setcachedImages(res);
       }
-     
+
       if (cachedImages) {
         console.log("cache hit");
         setImages(cachedImages);
@@ -43,30 +45,30 @@ const Home = () => {
         toast.error(`${isLFU ? "LFU" : "LRU"} Cache miss... Adding in cache`);
         try {
           const response = await axios.get(
-            `${URL}?query=${key}&page=1&per_page=${IMAGE_PER_PAGE}&client_id=6QJm2DVu_9QByawBlMt_1xglZBSVOS8Xv_XUWi-E6u8`
+            `${URL}?query=${key}&page=1&per_page=${IMAGE_PER_PAGE}&client_id=${id}`
           );
           // console.log(response.data.results[0].alt_description);
           // console.log(response.data.results[0].urls);
           // console.log("response", response);
-          const fetchedImages: Images[] | null = await response.data.results.map(
-            (img: any) => ({
+          const fetchedImages: Images[] | null =
+            (await response.data.results.map((img: any) => ({
               url: img.urls.small,
               alt: img.alt_description,
-            })
-          ) || null;
-          if (fetchedImages!=null) {
-            if(fetchedImages!=null) setImages(fetchedImages);
-           
+            }))) || null;
+          if (fetchedImages != null) {
+            const img = fetchedImages;
+            setImages(img);
+
             if (isLFU) {
               const ValueFreq: ImagesFreq = {
-                image: fetchedImages,
+                image: img,
                 freq: 0,
               };
               cacheLf.put(key, ValueFreq);
             } else {
-              cache.set(key, fetchedImages);
+              cache.set(key, img);
             }
-           
+
             await console.log("images after set", images);
             setImgLoaded(true);
           }
@@ -78,13 +80,16 @@ const Home = () => {
   };
 
   const handleToggle = () => {
-    setisLFU(!isLFU);
-    if (isLFU) {
+    const newIsLFU = !isLFU;
+    setisLFU(newIsLFU);
+    console.log("lfu", newIsLFU);
+    if (newIsLFU) {
       toast("Switch to LFU cache");
     } else {
       toast("Switch to LRU cache");
     }
   };
+
   return (
     <main className="w-full h-screen p-8">
       <ToastContainer />
@@ -104,7 +109,7 @@ const Home = () => {
              after:bg-[#222831] after:rounded-full after:h-5 after:w-5 after:transition-all  peer-checked:bg-[#76ABAE]"
             ></div>
             <span className="ms-3 text-xl font-medium  text-[#EEEEEE]">
-              {isLFU ? <>LRU</> : <>LFU</>}
+              {isLFU ? <>LFU</> : <>LRU</>}
             </span>
           </label>
         </div>
