@@ -17,29 +17,26 @@ const Home = () => {
   const [search, setSearch] = useState("");
   const [imgLoaded, setImgLoaded] = useState(true);
   const [isLFU, setisLFU] = useState(false);
-  const [cachedImages, setcachedImages] = useState<Images[] | null>(null);
   const IMAGE_PER_PAGE = 6;
   const id = process.env.NEXT_PUBLIC_API_KEY;
   console.log("id", id);
   const getImages = async (key: string) => {
     console.log(key);
     if (key !== "") {
+      let cachedImages = null;
       if (isLFU) {
         const res = cacheLf.get(key);
-        setcachedImages(res?.image || null);
+        cachedImages = res?.image || null;
       } else {
-        const res = cache.get(key);
-        setcachedImages(res);
+        cachedImages = cache.get(key);
       }
-
+  
       if (cachedImages) {
         console.log("cache hit");
         setImages(cachedImages);
-        console.log("images in cache", images);
+        console.log("images in cache", cachedImages);
         setImgLoaded(true);
-        toast.success(
-          `${isLFU ? "LFU" : "LRU"} Cache hit... Updating the cache`
-        );
+        toast.success(`${isLFU ? "LFU" : "LRU"} Cache hit... Updating the cache`);
       } else {
         console.log("Cache miss");
         toast.error(`${isLFU ? "LFU" : "LRU"} Cache miss... Adding in cache`);
@@ -47,29 +44,25 @@ const Home = () => {
           const response = await axios.get(
             `${URL}?query=${key}&page=1&per_page=${IMAGE_PER_PAGE}&client_id=${id}`
           );
-          // console.log(response.data.results[0].alt_description);
-          // console.log(response.data.results[0].urls);
-          // console.log("response", response);
-          const fetchedImages: Images[] | null =
-            (await response.data.results.map((img: any) => ({
-              url: img.urls.small,
-              alt: img.alt_description,
-            }))) || null;
-          if (fetchedImages != null) {
-            const img = fetchedImages;
-            setImages(img);
-
+          const fetchedImages: Images[] = response.data.results.map((img: any) => ({
+            url: img.urls.small,
+            alt: img.alt_description,
+          })) || [];
+  
+          if (fetchedImages.length > 0) {
+            setImages(fetchedImages);
+  
             if (isLFU) {
-              const ValueFreq: ImagesFreq = {
-                image: img,
+              const valueFreq: ImagesFreq = {
+                image: fetchedImages,
                 freq: 0,
               };
-              cacheLf.put(key, ValueFreq);
+              cacheLf.put(key, valueFreq);
             } else {
-              cache.set(key, img);
+              cache.set(key, fetchedImages);
             }
-
-            await console.log("images after set", images);
+  
+            console.log("images after set", fetchedImages);
             setImgLoaded(true);
           }
         } catch (error: any) {
@@ -78,6 +71,7 @@ const Home = () => {
       }
     }
   };
+  
 
   const handleToggle = () => {
     const newIsLFU = !isLFU;
